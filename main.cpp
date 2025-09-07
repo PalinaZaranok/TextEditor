@@ -1,7 +1,18 @@
 #include <windows.h>
 #include "definitions.h"
 
+UINT_PTR inactivityTimerId = 1;
+UINT_PTR animationTimerId = 2;
+const UINT inactivityTimeout = 30000;
+bool isScreenBlackedOut = false;
+DWORD lastActivityTime = 0;
 
+int figureX = 0;
+int figureY = 0;
+int figureSize = 50;
+int figureSpeedX = 3;
+int figureSpeedY = 2;
+int figureType = 0;
 
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR args, int ncmdshow)
 {
@@ -19,6 +30,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR args, int ncmdsho
 
     ShowWindow(hWnd, ncmdshow);
     UpdateWindow(hWnd);
+
+    lastActivityTime = GetTickCount();
 
     MSG SoftwareMainMessage = {0};
 
@@ -62,15 +75,39 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, L
                     DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(iddAboutBox), hWnd, AboutDlgProc);
                     break;
                 //default:
-                    break;
+                  //  break;
             }
             break;
         case WM_CREATE:
             MainWndAddMenus(hWnd);
+            SetTimer(hWnd, inactivityTimerId, 1000, NULL);
+            break;
+        case WM_TIMER:
+            if (wparam == inactivityTimerId) {
+                DWORD currentTime = GetTickCount();
+                if (currentTime - lastActivityTime > inactivityTimeout && !isScreenBlackedOut) {
+                    BlackOutScreen(hWnd);
+                }
+            } else if (wparam == animationTimerId && isScreenBlackedOut) {
+                UpdateFigurePosition(hWnd);
+                DrawAnimatedFigure(hWnd);
+            }
+            break;
+        case WM_MOUSEMOVE:
+        case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        case WM_MOUSEWHEEL:
+            ResetInactivityTimer();
+            if (isScreenBlackedOut) {
+                RestoreScreen(hWnd);
+            }
             break;
         //case WM_PAINT:
           //  break;
         case WM_DESTROY:
+            KillTimer(hWnd, inactivityTimerId);
+            KillTimer(hWnd, animationTimerId);
             PostQuitMessage(0);
             break;
         default: return DefWindowProc(hWnd, message, wparam, lparam);
@@ -109,14 +146,13 @@ INT_PTR CALLBACK AboutDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
     switch (uMsg)
     {
         case WM_INITDIALOG:
-            // Инициализация диалогового окна
             return TRUE;
 
         case WM_COMMAND:
             switch (LOWORD(wParam))
             {
-                case IDOK:      // Кнопка OK
-                case IDCANCEL:  // Кнопка Cancel или крестик
+                case IDOK:
+                case IDCANCEL:
                     EndDialog(hwndDlg, 0);
                     return TRUE;
             }
@@ -130,4 +166,99 @@ INT_PTR CALLBACK AboutDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPa
     return FALSE;
 }
 
+void ResetInactivityTimer()
+{
+    lastActivityTime = GetTickCount();
+}
 
+void BlackOutScreen(HWND hWnd)
+{
+    isScreenBlackedOut = true;
+
+    RECT rect;
+    GetClientRect(hWnd, &rect);
+    figureX = (rect.right - rect.left) / 2;
+    figureY = (rect.bottom - rect.top) / 2;
+    figureType = rand() % 3;
+    SetTimer(hWnd, animationTimerId, 33, NULL);
+    DrawAnimatedFigure(hWnd);
+}
+
+void UpdateFigurePosition(HWND hWnd)
+{
+    RECT rect;
+    GetClientRect(hWnd, &rect);
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+
+    // изменение позициии
+    figureX += figureSpeedX;
+    figureY += figureSpeedY;
+
+    // расчет границ экрана
+    if (figureX - figureSize/2 <= 0 || figureX + figureSize/2 >= width) {
+        figureSpeedX = -figureSpeedX;
+        figureType = (figureType + 1) % 3;
+    }
+    // изменение типа фигуры
+    if (figureY - figureSize/2 <= 0 || figureY + figureSize/2 >= height) {
+        figureSpeedY = -figureSpeedY;
+        figureType = (figureType + 1) % 3;
+    }
+}
+
+
+void DrawAnimatedFigure(HWND hWnd)
+{
+    HDC hdc = GetDC(hWnd);
+
+    // черный экран
+    RECT rect;
+    GetClientRect(hWnd, &rect);
+    HBRUSH blackBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(hdc, &rect, blackBrush);
+    DeleteObject(blackBrush);
+
+    HBRUSH figureBrush = CreateSolidBrush(RGB(0, 0, 255));
+    HPEN figurePen = CreatePen(PS_SOLID, 2, RGB(255, 255, 255));
+
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, figureBrush);
+    HPEN oldPen = (HPEN)SelectObject(hdc, figurePen);
+    switch (figureType) {
+        case 0:
+            Ellipse(hdc, figureX - figureSize/2, figureY - figureSize/2,
+                    figureX + figureSize/2, figureY + figureSize/2);
+            break;
+
+        case 1:
+            Rectangle(hdc, figureX - figureSize/2, figureY - figureSize/2,
+                      figureX + figureSize/2, figureY + figureSize/2);
+            break;
+
+        case 2:
+        {
+            POINT triangle[3] = {
+                    {figureX, figureY - figureSize/2},
+                    {figureX - figureSize/2, figureY + figureSize/2},
+                    {figureX + figureSize/2, figureY + figureSize/2}
+            };
+            Polygon(hdc, triangle, 3);
+        }
+            break;
+    }
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+    DeleteObject(figureBrush);
+    DeleteObject(figurePen);
+
+    ReleaseDC(hWnd, hdc);
+}
+
+// отображение начального окна
+void RestoreScreen(HWND hWnd)
+{
+    isScreenBlackedOut = false;
+    KillTimer(hWnd, animationTimerId);
+    InvalidateRect(hWnd, NULL, TRUE);
+    UpdateWindow(hWnd);
+}
