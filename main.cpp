@@ -1,21 +1,28 @@
 #include <windows.h>
 #include "definitions.h"
 
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR args, int ncmdshow){
-    WNDCLASS SoftwareMainClass = NewWindowClass((HBRUSH)COLOR_WINDOW, LoadCursor(NULL, IDC_ARROW), hInst,
-                                        LoadIcon(NULL, IDI_QUESTION), L"MainWndClass", SoftwareMainProcedure);
+
+
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR args, int ncmdshow)
+{
+    WNDCLASS SoftwareMainClass = NewWindowClass((HBRUSH)(COLOR_WINDOW), LoadCursor(NULL,
+                                                                                   IDC_ARROW), hInst,
+                                                LoadIcon(NULL, IDI_QUESTION),
+                                                L"MainWndClass", SoftwareMainProcedure);
 
     if(!RegisterClassW(&SoftwareMainClass)) {return -1;}
 
-    MSG SoftwareMainMessage = {0};
 
     HWND hWnd = CreateWindowEx(0,L"MainWndClass", L"Text Editor", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 400, 300, NULL, NULL,
                  NULL, NULL);
 
+
     ShowWindow(hWnd, ncmdshow);
     UpdateWindow(hWnd);
 
-    while(GetMessage(&SoftwareMainMessage, NULL, NULL, NULL)){
+    MSG SoftwareMainMessage = {0};
+
+    while(GetMessage(&SoftwareMainMessage, NULL, 0, 0)){
         TranslateMessage(&SoftwareMainMessage);
         DispatchMessage(&SoftwareMainMessage);
 
@@ -23,7 +30,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPSTR args, int ncmdsho
     return 0;
 }
 
-WNDCLASS NewWindowClass(HBRUSH bgColor, HCURSOR cursor, HINSTANCE hInst, HICON icon, LPCWSTR name, WNDPROC procedure){
+WNDCLASS NewWindowClass(HBRUSH bgColor, HCURSOR cursor, HINSTANCE hInst, HICON icon, LPCWSTR name, WNDPROC procedure)
+{
     WNDCLASS NWC = { 0 };
     NWC.hIcon = icon;
     NWC.hCursor = cursor;
@@ -36,7 +44,8 @@ WNDCLASS NewWindowClass(HBRUSH bgColor, HCURSOR cursor, HINSTANCE hInst, HICON i
 
 }
 
-LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam){
+LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam)
+{
     switch(message){
         case WM_COMMAND:
             switch (wparam) {
@@ -50,7 +59,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, L
                     PostQuitMessage(0);
                     break;
                 case OnMenuProgram:
-                    //DialogBox
+                    DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(iddAboutBox), hWnd, AboutDlgProc);
                     break;
                 //default:
                     break;
@@ -69,7 +78,8 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, L
     return 0;
 }
 
-void MainWndAddMenus(HWND hWnd){
+void MainWndAddMenus(HWND hWnd)
+{
     HMENU rootMenu = CreateMenu();
     HMENU fileMenu = CreateMenu();
     HMENU editMenu = CreateMenu();
@@ -77,7 +87,7 @@ void MainWndAddMenus(HWND hWnd){
     //actions of File's menu
     AppendMenu(fileMenu, MF_STRING, OnMenuOpen, L"Open");
     AppendMenu(fileMenu, MF_STRING, OnMenuSave, L"Save");
-    AppendMenu(fileMenu, MF_SEPARATOR, NULL, NULL);
+   // AppendMenu(fileMenu, MF_SEPARATOR, NULL, NULL);
     AppendMenu(fileMenu, MF_STRING, OnMenuExit, L"Exit");
 
     //actions of Edit's menu
@@ -94,5 +104,30 @@ void MainWndAddMenus(HWND hWnd){
 
 }
 
+INT_PTR CALLBACK AboutDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    switch (uMsg)
+    {
+        case WM_INITDIALOG:
+            // Инициализация диалогового окна
+            return TRUE;
+
+        case WM_COMMAND:
+            switch (LOWORD(wParam))
+            {
+                case IDOK:      // Кнопка OK
+                case IDCANCEL:  // Кнопка Cancel или крестик
+                    EndDialog(hwndDlg, 0);
+                    return TRUE;
+            }
+            break;
+
+        case WM_CLOSE:
+            EndDialog(hwndDlg, 0);
+            return TRUE;
+    }
+
+    return FALSE;
+}
 
 
