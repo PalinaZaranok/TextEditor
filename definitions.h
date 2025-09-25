@@ -22,6 +22,12 @@
 #define WM_MBUTTONDOWN     0x0207
 #define WM_MOUSEWHEEL      0x020A
 
+extern UINT_PTR inactivityTimerId;
+extern UINT_PTR animationTimerId;
+extern const UINT inactivityTimeout;
+extern bool isScreenBlackedOut;
+extern DWORD lastActivityTime;
+
 WNDCLASS NewWindowClass(HBRUSH bgColor, HCURSOR cursor, HINSTANCE hInst, HICON icon, LPCWSTR name, WNDPROC procedure);
 LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 void MainWndAddMenus(HWND hWnd);
