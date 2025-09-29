@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <commctrl.h>
 #include "window.h"
 #include "../definitions.h"
 #include "../animation/animation.h"
@@ -36,8 +37,6 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam,LP
                 case OnMenuProgram:
                     DialogBox(GetModuleHandle(NULL), MAKEINTRESOURCE(iddAboutBox), hWnd, AboutDlgProc);
                     break;
-                //default:
-                //  break;
             }
             break;
         case WM_CREATE:
@@ -46,7 +45,6 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam,LP
             MainWndAddEditControl(hWnd);
             break;
         case WM_SIZE:
-        {
             if (hEditControl) {
                 RECT rcClient;
                 GetClientRect(hWnd, &rcClient);
@@ -57,8 +55,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam,LP
 
                 MoveWindow(hEditControl, margin, margin, width, height, TRUE);
             }
-        }
-            break;
+        break;
 
         case WM_TIMER:
             if (wparam == inactivityTimerId) {
@@ -81,19 +78,85 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam,LP
                 RestoreScreen(hWnd);
             }
             break;
-        //case WM_PAINT:
-        //  break;
+        case WM_KEYDOWN:
+            ResetInactivityTimer();
+            switch (wparam) {
+                case 'W': case 'w':
+                    manualDy = -manualSpeed;
+                    autoMove = false;
+                    break;
+                case 'S': case 's':
+                    manualDy = manualSpeed;
+                    autoMove = false;
+                    break;
+                case 'A': case 'a':
+                    manualDx = -manualSpeed;
+                    autoMove = false;
+                    break;
+                case 'D': case 'd':
+                    manualDx = manualSpeed;
+                    autoMove = false;
+                    break;
+                default:
+                    if (isScreenBlackedOut) {
+                        RestoreScreen(hWnd);
+                    }
+                    break;
+            }
+            break;
+
+        case WM_KEYUP:
+            switch (wparam) {
+                case 'W': case 'w':
+                case 'S': case 's':
+                    manualDy = 0;
+                    break;
+                case 'A': case 'a':
+                case 'D': case 'd':
+                    manualDx = 0;
+                    break;
+            }
+            if (manualDx == 0 && manualDy == 0) {
+                autoMove = true;
+            }
+            break;
         case WM_DESTROY:
             KillTimer(hWnd, inactivityTimerId);
             KillTimer(hWnd, animationTimerId);
             PostQuitMessage(0);
             break;
+
         default:
             return
         DefWindowProc(hWnd, message, wparam, lparam); // обрабатывает не явные сообщения окна
     }
         return 0;
 }
+
+LRESULT CALLBACK EditSubclassProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam,
+                                  UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
+{
+    HWND hParent = (HWND)dwRefData;
+
+    switch (msg) {
+        case WM_MOUSEMOVE:
+        case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_MOUSEWHEEL:
+            ResetInactivityTimer();
+            if (isScreenBlackedOut) {
+                RestoreScreen(hParent);
+            }
+            break;
+
+        case WM_GETDLGCODE:
+            // Говорим, что хотим все клавиши, чтобы они доходили до SoftwareMainProcedure
+            return DLGC_WANTALLKEYS;
+    }
+    return DefSubclassProc(hWnd, msg, wParam, lParam);
+}
+
+
 
 void MainWndAddMenus(HWND hWnd)
 {
@@ -123,19 +186,12 @@ SetMenu(hWnd, rootMenu);
 
 void MainWndAddEditControl(HWND hWnd)
 {
-    hEditControl = CreateWindowEx(
-            WS_EX_CLIENTEDGE,            // расширенный стиль (рамка)
-            L"EDIT",                     // класс окна
-            L"",                         // начальный текст
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL |
-            ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL, // стили
-            10, 10,                      // позиция X, Y
-            360, 200,                    // ширина, высота
-            hWnd,                        // родительское окно
-            (HMENU)1,                    // ID контрола
-            GetModuleHandle(NULL),       // hInstance
-            NULL                         // параметры создания
-    );
+    hEditControl = CreateWindowEx(WS_EX_CLIENTEDGE, L"EDIT", L"",
+                                  WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
+                                  10, 10, 360, 200, hWnd, (HMENU)1,
+                                  GetModuleHandle(NULL), NULL);
+
+    SetWindowSubclass(hEditControl, EditSubclassProc, 0, (DWORD_PTR)hWnd);
 }
 
 INT_PTR CALLBACK AboutDlgProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)

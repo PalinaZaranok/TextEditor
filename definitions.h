@@ -28,6 +28,11 @@ extern const UINT inactivityTimeout;
 extern bool isScreenBlackedOut;
 extern DWORD lastActivityTime;
 
+extern bool autoMove;
+extern int manualDx;
+extern int manualDy;
+extern int manualSpeed;
+
 WNDCLASS NewWindowClass(HBRUSH bgColor, HCURSOR cursor, HINSTANCE hInst, HICON icon, LPCWSTR name, WNDPROC procedure);
 LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 void MainWndAddMenus(HWND hWnd);
